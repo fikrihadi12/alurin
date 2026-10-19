@@ -1,0 +1,19 @@
+ALURIN v0.4 — PANDUAN SINGKAT
+
+1. Ekstrak ZIP ke folder kerja.
+2. Buka terminal di folder ALURIN_v0.4_Admin_Content.
+3. Windows: py jalankan_alurin.py
+   macOS/Linux: python3 jalankan_alurin.py
+4. Buka alamat yang dicetak pada terminal.
+
+LOGIN MURID DEMO
+Masukkan nama lengkap, kelas, dan nomor absen.
+
+LOGIN ADMIN DEMO
+Nama pengguna: admin
+Kode demo: alurin-demo
+
+CATATAN PENTING
+Versi ini adalah prototipe frontend. Login dan role belum aman untuk penggunaan publik. Data tersimpan lokal di browser, tidak tersinkron antardevice, dan bukan database terpusat. Gunakan data simulasi sampai backend dan database terintegrasi.
+
+Baca README.md untuk daftar fitur, dan INTEGRASI_BACKEND.md untuk rancangan integrasi dengan rekan pengembang backend.

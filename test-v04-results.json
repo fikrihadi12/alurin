@@ -1,0 +1,130 @@
+{
+  "routes": {
+    "desktop-beranda": {
+      "loaded": true,
+      "overflow": false
+    },
+    "desktop-diagnostik": {
+      "loaded": true,
+      "overflow": false
+    },
+    "desktop-materi": {
+      "loaded": true,
+      "overflow": false
+    },
+    "desktop-laboratorium": {
+      "loaded": true,
+      "overflow": false
+    },
+    "desktop-detektif": {
+      "loaded": true,
+      "overflow": false
+    },
+    "desktop-hasil": {
+      "loaded": true,
+      "overflow": false
+    },
+    "mobile-beranda": {
+      "loaded": true,
+      "overflow": false
+    },
+    "mobile-diagnostik": {
+      "loaded": true,
+      "overflow": false
+    },
+    "mobile-materi": {
+      "loaded": true,
+      "overflow": false
+    },
+    "mobile-laboratorium": {
+      "loaded": true,
+      "overflow": false
+    },
+    "mobile-detektif": {
+      "loaded": true,
+      "overflow": false
+    },
+    "mobile-hasil": {
+      "loaded": true,
+      "overflow": false
+    },
+    "narrow-beranda": {
+      "loaded": true,
+      "overflow": false
+    },
+    "narrow-diagnostik": {
+      "loaded": true,
+      "overflow": false
+    },
+    "narrow-materi": {
+      "loaded": true,
+      "overflow": false
+    },
+    "narrow-laboratorium": {
+      "loaded": true,
+      "overflow": false
+    },
+    "narrow-detektif": {
+      "loaded": true,
+      "overflow": false
+    },
+    "narrow-hasil": {
+      "loaded": true,
+      "overflow": false
+    }
+  },
+  "checks": {
+    "admin_login_route": true,
+    "admin_seed_students": true,
+    "admin_search_filter": true,
+    "admin_class_filter": true,
+    "admin_status_filter": true,
+    "admin_student_detail": true,
+    "admin_content_counts": true,
+    "admin_content_bank_questions": true,
+    "admin_material_preview": true,
+    "student_login_and_personalized_home": true,
+    "student_cannot_open_admin": true,
+    "diagnostic_has_12": true,
+    "diagnostic_visual_question": true,
+    "diagnostic_summary_12_correct": true,
+    "diagnostic_review_12": true,
+    "diagnostic_persists_reload": true,
+    "student_profiles_are_isolated": true,
+    "student_profile_resume_after_switch": true,
+    "five_material_units": true,
+    "debugging_material": true,
+    "six_lab_scenarios": true,
+    "lab_trace_nilai": true,
+    "lab_trace_saldo": true,
+    "lab_trace_diskon": true,
+    "lab_trace_buku": true,
+    "lab_trace_tugas": true,
+    "lab_trace_antrean": true,
+    "lab_draft_persists_reload": true,
+    "lab_tab_persists_reload": true,
+    "trace_step_persists_reload": true,
+    "six_detective_cases": true,
+    "detective_case_1": true,
+    "detective_case_2": true,
+    "detective_case_3": true,
+    "detective_case_4": true,
+    "detective_case_5": true,
+    "detective_case_6": true,
+    "detective_answer_persists_reload": true,
+    "student_result_submit_local": true,
+    "certificate_download": true,
+    "large_text_changes_font_size": true,
+    "large_text_resets_font_size": true,
+    "settings_dialog_closes": true,
+    "admin_sees_student_record": true,
+    "admin_sees_submitted_result": true,
+    "desktop-mobile-or-desktop-navigation": true,
+    "mobile-mobile-or-desktop-navigation": true,
+    "narrow-mobile-or-desktop-navigation": true,
+    "admin_mobile_no_overflow": true,
+    "admin_csv_export": true
+  },
+  "errors": [],
+  "notes": []
+}
