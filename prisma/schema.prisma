@@ -1,0 +1,83 @@
+// Prisma Schema for ALURIN (Development / SQLite)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Teacher {
+  id        String    @id @default(cuid())
+  username  String    @unique
+  password  String    // bcrypt hash
+  name      String    @default("Guru Informatika")
+  createdAt DateTime  @default(now())
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  className String    @default("X-1")
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  students  Student[]
+}
+
+model Student {
+  id           String         @id @default(cuid())
+  sessionId    String
+  session      Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  name         String
+  absentNo     Int
+  currentRoute String         @default("beranda")
+  currentStep  String         @default("Mulai Belajar")
+  isFinished   Boolean        @default(false)
+  lastActiveAt DateTime       @default(now())
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  state        LearningState?
+  scores       Score[]
+  badges       StudentBadge[]
+
+  @@unique([sessionId, absentNo])
+}
+
+model LearningState {
+  id                  String   @id @default(cuid())
+  studentId           String   @unique
+  student             Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  diagnosticAnswers   String   @default("{}") // JSON string: { q1: "B", ... }
+  diagnosticStep      Int      @default(0)    // Index nomor soal terakhir (0-11)
+  diagnosticReport    String?                 // JSON laporan hasil diagnostik
+  labStateJson        String?                 // Snapshot flowchart lab
+  detectiveStateJson  String?                 // Jawaban detektif logika
+  updatedAt           DateTime @updatedAt
+}
+
+model Score {
+  id             String   @id @default(cuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  conceptType    String   // URUTAN, SIMBOL, CABANG, TRACING, FINAL
+  correct        Int      @default(0)
+  total          Int      @default(3)
+  percentage     Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([studentId, conceptType])
+}
+
+model StudentBadge {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  badgeCode  String
+  title      String
+  icon       String
+  unlockedAt DateTime @default(now())
+
+  @@unique([studentId, badgeCode])
+}

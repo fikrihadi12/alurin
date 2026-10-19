@@ -29,3 +29,6 @@ test-v04-results.json
 # Docker data local
 postgres_data/
 uploads/
+prisma/dev.db*
+*.db
+*.db-journal

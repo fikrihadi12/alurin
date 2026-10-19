@@ -1,11 +1,38 @@
 services:
+  alurin-db:
+    image: postgres:16-alpine
+    container_name: alurin-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: alurin_db
+      POSTGRES_USER: alurin_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-rahasia_alurin_123}
+    volumes:
+      # Data persisten database di mini PC
+      - /mnt/storage2/alurin/postgres_data:/var/lib/postgresql/data
+    networks:
+      - alurin-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alurin_user -d alurin_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   alurin-app:
     build: .
     container_name: alurin-app
     restart: unless-stopped
     ports:
-      # Port 3080 aman dari bentrok dengan Wedding Tracker (3050), Algocraft (3060), Portofolio (3070), Immich (2283)
-      - "3080:80"
+      # Port 3080 terhubung ke Cloudflare Tunnel (alurin.fhadi.my.id)
+      - "3080:3000"
+    environment:
+      DATABASE_URL: "postgresql://alurin_user:${DB_PASSWORD:-rahasia_alurin_123}@alurin-db:5432/alurin_db"
+      JWT_SECRET: ${JWT_SECRET:-kunci_rahasia_jwt_alurin_panjang_dan_aman_2026}
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      alurin-db:
+        condition: service_healthy
     networks:
       - alurin-net
 

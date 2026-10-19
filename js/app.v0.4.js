@@ -14,17 +14,16 @@
     laboratorium: { label: 'Laboratorium Flowchart', sub: 'Mencoba dan menelusuri alur', icon: 'blocks' },
     detektif: { label: 'Detektif Logika', sub: 'Belajar dari kesalahan alur', icon: 'bug' },
     hasil: { label: 'Hasil Belajar', sub: 'Refleksi dan perkembangan', icon: 'chart' },
-    login: { label: 'Masuk ALURIN', sub: 'Pilih peran untuk melanjutkan', icon: 'lock' },
-    admin: { label: 'Dashboard Admin', sub: 'Pemantauan pembelajaran kelas', icon: 'chart' },
+    login: { label: 'Masuk ALURIN', sub: 'Portal Masuk Siswa', icon: 'lock' },
+    'guru-login': { label: 'Portal Guru', sub: 'Masuk Guru Informatika', icon: 'lock' },
+    admin: { label: 'Dashboard Guru', sub: 'Pemantauan pembelajaran kelas', icon: 'chart' },
   };
   const NAV = ['beranda','diagnostik','materi','laboratorium','detektif','hasil'];
   const MOBILE_NAV = ['beranda','materi','laboratorium','detektif','hasil'];
-  const SESSION_KEY='alurin-v04-demo-session';
+  const SESSION_KEY='alurin_session';
   const STUDENTS_KEY='alurin-v04-demo-students';
-  const DEMO_ADMIN_USER='admin';
-  const DEMO_ADMIN_PASSWORD='alurin-demo';
   const ICON = (name, className='') => `<svg class="ico ${className}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
-  const btn = (url, label, type='primary', icon='arrow-right') => `<a class="btn btn-${type}" href="#/${url}">${label} ${icon ? ICON(icon) : ''}</a>`;
+  const btn = (url, label, type='primary', icon='arrow-right') => `<a class="btn btn-${type}" href="/${url.replace(/^#\/?/, '')}">${label} ${icon ? ICON(icon) : ''}</a>`;
   const pill = (text='Prototipe Tahap 3', type='blue') => `<span class="badge badge-${type}">${text}</span>`;
   const pageHead = (kicker, title, desc, badge='') => `<header class="page-head"><div><span class="kicker">${kicker}</span><h1>${title}</h1><p>${desc}</p></div>${badge ? `<div>${badge}</div>` : ''}</header>`;
   let activeRoute = 'beranda';
@@ -111,7 +110,31 @@
   let selectedConcept = null;
   restoreActivityState();
   function loadSession(){
-    try { const x=JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); return x&&['student','admin'].includes(x.role)&&typeof x.id==='string'?x:null; } catch { return null; }
+    try { const x=JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); return x&&['student','admin','teacher'].includes(x.role)&&typeof x.id==='string'?x:null; } catch { return null; }
+  }
+  function getStudentStepDesc() {
+    if (activeRoute === 'diagnostik') {
+      if (diagnosticState?.report) return 'Diagnostik Selesai';
+      return `Diagnostik: Soal ${(diagnosticState?.step || 0) + 1}/12`;
+    }
+    if (activeRoute === 'laboratorium') return `Laboratorium: Kasus ${labState?.scenario || 1}`;
+    if (activeRoute === 'detektif') return `Detektif: Kasus ${selectedCase + 1}`;
+    if (activeRoute === 'materi') return `Materi: Unit ${selectedUnit + 1}`;
+    if (activeRoute === 'hasil') return 'Melihat Hasil Belajar';
+    return 'Di Beranda';
+  }
+  function triggerServerSync() {
+    if (!currentSession || currentSession.role !== 'student' || !globalThis.ALURIN_API) return;
+    globalThis.ALURIN_API.saveStudentState({
+      currentRoute: activeRoute,
+      currentStep: getStudentStepDesc(),
+      diagnosticAnswers: diagnosticState?.answers || {},
+      diagnosticStep: diagnosticState?.step || 0,
+      diagnosticReport: diagnosticState?.report || null,
+      labStateJson: labState,
+      detectiveStateJson: detectiveSelections,
+      isFinished: !!diagnosticState?.report
+    });
   }
   function activeStorageKey(key){return currentSession?.role==='student'?`${key}::${currentSession.id}`:key;}
   function readStudentRecords(){try{const x=JSON.parse(localStorage.getItem(STUDENTS_KEY)||'[]');return Array.isArray(x)?x.filter(r=>r&&typeof r.id==='string'):[];}catch{return [];}}
@@ -128,7 +151,7 @@
   }
   function saveActivityState(){
     const snapshot={labState:{scenario:labState.scenario,order:labState.order,types:labState.types,branches:labState.branches,hintLevel:labState.hintLevel,draft:labState.draft||null},trace:labState.trace?{values:labState.trace.values,index:labState.trace.index}:null,selectedUnit,selectedCase,selectedLabTab,diagramZoom,detectiveSelections,detectiveHint};
-    safeLocalSet(activeStorageKey('alurin-v04-activity-state'),JSON.stringify(snapshot));syncStudentRecord();
+    safeLocalSet(activeStorageKey('alurin-v04-activity-state'),JSON.stringify(snapshot));syncStudentRecord();triggerServerSync();
   }
   function restoreActivityState(){
     let x=null;try{x=JSON.parse(localStorage.getItem(activeStorageKey('alurin-v04-activity-state'))||'null');}catch{}
@@ -155,58 +178,201 @@
   function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function normalizedName(value){return String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('id-ID');}
   function initials(value){return String(value||'AL').split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();}
-  function loginPage(){
-    return `<div class="login-screen"><header class="login-brand"><span class="brand-logo">${ICON('workflow')}</span><div><strong>ALURIN</strong><small>BELAJAR, PAHAMI ALURNYA</small></div><span class="login-version">v0.4 · DEMO</span></header><main class="login-layout"><section class="login-intro"><span class="kicker">MEDIA BELAJAR INFORMATIKA KELAS X</span><h1>Belajar algoritma, <em>selangkah demi selangkah.</em></h1><p>Kenali konsep, susun flowchart, telusuri logika, dan belajar dari setiap percobaan.</p><div class="login-benefits"><div>${ICON('check-circle')} Progres lokal tersimpan per profil browser</div><div>${ICON('blocks')} 6 kasus Laboratorium dan 6 kasus Detektif</div><div>${ICON('clipboard')} 12 soal diagnostik, termasuk diagram visual</div></div></section><section class="login-panels"><article class="card login-card"><span class="badge badge-blue">UNTUK MURID</span><h2>Mulai belajar</h2><p>Masukkan identitas kelas untuk membuat profil demo di perangkat ini.</p><form data-form="student-login" class="login-form"><label>Nama lengkap<input name="studentName" autocomplete="name" required maxlength="80" placeholder="Contoh: Andi Pratama"></label><div class="login-two-col"><label>Kelas<input name="className" required maxlength="24" placeholder="X-3"></label><label>Nomor absen<input name="attendance" type="number" min="1" max="99" required placeholder="12"></label></div><button class="btn btn-primary" type="submit">Masuk sebagai murid ${ICON('arrow-right')}</button><p class="login-message" data-login-message="student" aria-live="polite"></p></form></article><article class="card login-card admin-login-card"><span class="badge badge-teal">UNTUK GURU</span><h2>Masuk admin demo</h2><p>Dashboard untuk meninjau progres, hasil diagnostik, dan aktivitas murid.</p><form data-form="admin-login" class="login-form"><label>Nama pengguna<input name="adminUser" autocomplete="username" required placeholder="admin"></label><label>Kode demo<input name="adminPass" type="password" autocomplete="current-password" required placeholder="Kode akses demo"></label><button class="btn btn-outline" type="submit">Masuk ke dashboard ${ICON('arrow-right')}</button><p class="login-message" data-login-message="admin" aria-live="polite"></p></form><p class="prototype-warning">Akun demo: <strong>admin</strong> · Kode: <strong>alurin-demo</strong>. Mode ini bukan autentikasi aman, jangan gunakan data murid sungguhan sebelum backend dipasang.</p></article></section></main><footer class="login-footer">ALURIN v0.4 · Prototipe frontend · Data tersimpan lokal pada browser ini</footer></div>`;
+  let liveFeedData = null;
+  let adminLiveTimer = null;
+
+  function studentLoginPage(){
+    return `<div class="login-screen">
+      <header class="login-brand">
+        <span class="brand-logo">${ICON('workflow')}</span>
+        <div><strong>ALURIN</strong><small>BELAJAR, PAHAMI ALURNYA</small></div>
+        <span class="login-version">v0.4 · KELAS X</span>
+      </header>
+      <main class="login-layout">
+        <section class="login-intro">
+          <span class="kicker">MEDIA BELAJAR INFORMATIKA KELAS X</span>
+          <h1>Belajar algoritma, <em>selangkah demi selangkah.</em></h1>
+          <p>Kenali konsep, susun flowchart, telusuri logika, dan belajar dari setiap percobaan.</p>
+          <div class="login-benefits">
+            <div>${ICON('check-circle')} Progres belajar otomatis tersimpan ke server</div>
+            <div>${ICON('blocks')} 6 kasus Laboratorium dan 6 kasus Detektif Logika</div>
+            <div>${ICON('clipboard')} 12 soal asesmen diagnostik visual interaktif</div>
+          </div>
+        </section>
+        <section class="login-panels">
+          <article class="card login-card" style="max-width:440px;margin:0 auto;width:100%;">
+            <span class="badge badge-blue">PORTAL MURID</span>
+            <h2>Mulai Belajar</h2>
+            <p>Masukkan identitas kelas. Jika HP Anda mati atau restart, progres belajar otomatis tersimpan dan dapat dilanjutkan.</p>
+            <form data-form="student-login" class="login-form">
+              <label>Nama Lengkap
+                <input name="studentName" autocomplete="name" required maxlength="80" placeholder="Contoh: Andi Pratama">
+              </label>
+              <div class="login-two-col">
+                <label>Kelas
+                  <input name="className" required maxlength="24" placeholder="Contoh: X-1">
+                </label>
+                <label>Nomor Absen
+                  <input name="attendance" type="number" min="1" max="99" required placeholder="12">
+                </label>
+              </div>
+              <button class="btn btn-primary" type="submit">Mulai Belajar ${ICON('arrow-right')}</button>
+              <p class="login-message" data-login-message="student" aria-live="polite"></p>
+            </form>
+          </article>
+        </section>
+      </main>
+      <footer class="login-footer">ALURIN · Media Belajar Informatika Kelas X</footer>
+    </div>`;
   }
+
+  function teacherLoginPage(){
+    return `<div class="login-screen">
+      <header class="login-brand">
+        <span class="brand-logo">${ICON('workflow')}</span>
+        <div><strong>ALURIN</strong><small>PORTAL GURU INFORMATIKA</small></div>
+        <span class="login-version">PANEL GURU</span>
+      </header>
+      <main class="login-layout">
+        <section class="login-intro">
+          <span class="kicker">DASHBOARD PEMANTAUAN KELAS</span>
+          <h1>Pantau perkembangan siswa secara <em>real-time.</em></h1>
+          <p>Lihat status siswa aktif, progres per soal, dan rekapan nilai kelas secara terpusat.</p>
+          <div class="login-benefits">
+            <div>${ICON('chart')} Pemantauan langsung murid online & proses berjalan</div>
+            <div>${ICON('clipboard')} Rekap indikator 4 konsep logika otomatis</div>
+            <div>${ICON('blocks')} Ekspor laporan nilai lengkap ke format CSV</div>
+          </div>
+        </section>
+        <section class="login-panels">
+          <article class="card login-card" style="max-width:420px;margin:0 auto;width:100%;">
+            <span class="badge badge-teal">LOGIN GURU</span>
+            <h2>Ruang Guru</h2>
+            <p>Masuk menggunakan akun guru Anda untuk memantau aktivitas murid.</p>
+            <form data-form="teacher-login" class="login-form">
+              <label>Nama Pengguna
+                <input name="teacherUser" autocomplete="username" required placeholder="guru">
+              </label>
+              <label>Kata Sandi
+                <input name="teacherPass" type="password" autocomplete="current-password" required placeholder="Kata sandi">
+              </label>
+              <button class="btn btn-primary" type="submit">Buka Dashboard ${ICON('arrow-right')}</button>
+              <p class="login-message" data-login-message="teacher" aria-live="polite"></p>
+            </form>
+          </article>
+        </section>
+      </main>
+      <footer class="login-footer">ALURIN · Portal Khusus Guru Informatika</footer>
+    </div>`;
+  }
+
   function adminRecordsFiltered(){
-    let records=readStudentRecords();
+    let records = (liveFeedData && liveFeedData.students) ? liveFeedData.students : readStudentRecords();
     if(adminSearch){const q=adminSearch.toLocaleLowerCase('id-ID');records=records.filter(r=>`${r.name} ${r.className} ${r.attendance}`.toLocaleLowerCase('id-ID').includes(q));}
     if(adminClassFilter!=='all')records=records.filter(r=>r.className===adminClassFilter);
-    if(adminStatusFilter==='done')records=records.filter(r=>r.diagnosticComplete);
-    if(adminStatusFilter==='pending')records=records.filter(r=>!r.diagnosticComplete);
+    if(adminStatusFilter==='done')records=records.filter(r=>r.diagnosticComplete||r.isFinished);
+    if(adminStatusFilter==='pending')records=records.filter(r=>!r.diagnosticComplete&&!r.isFinished);
     return records.sort((a,b)=>String(a.className).localeCompare(String(b.className),'id')||Number(a.attendance)-Number(b.attendance)||String(a.name).localeCompare(String(b.name),'id'));
   }
-  function seedDemoStudents(){
-    const records=readStudentRecords(),classes=['X-1','X-2','X-3'];
-    const sampleNames=['Alya Putri','Bima Saputra','Citra Lestari','Daffa Ramadhan','Eka Maharani','Farhan Akbar','Gita Permata','Hana Nabila','Ilham Pratama','Jihan Azzahra','Kevin Wijaya','Laras Puspita'];
-    sampleNames.forEach((name,i)=>{const className=classes[i%classes.length],attendance=i+1,id=`demo-${className.toLowerCase()}-${attendance}`;if(records.some(r=>r.id===id))return;const done=i%4!==0;records.push({id,name,className,attendance,isDemo:true,createdAt:new Date(Date.now()-(i+2)*86400000).toISOString(),updatedAt:new Date(Date.now()-(i%5)*3600000).toISOString(),lastActivity:['diagnostik','materi','laboratorium','detektif','hasil'][i%5],diagnosticComplete:done,diagnosticCorrect:done?(5+(i%8)):null,diagnosticTotal:adaptive.QUESTIONS.length,labCompleted:i%7,labTotal:Object.keys(engine.SCENARIOS).length,detectiveCompleted:i%5,detectiveTotal:engine.DETECTIVE.length,practiceErrors:i%3,submittedAt:done&&i%2===0?new Date(Date.now()-(i%3)*3600000).toISOString():null,concepts:null});});writeStudentRecords(records);
+
+  function startAdminLiveFeed(){
+    if(adminLiveTimer) return;
+    const fetchFeed = async () => {
+      if(!globalThis.ALURIN_API) return;
+      try {
+        const data = await globalThis.ALURIN_API.teacherGetLiveFeed();
+        if(data && data.success){
+          liveFeedData = data;
+          if(activeRoute==='admin'){
+            const tableWrap = document.querySelector('[data-admin-table-container]');
+            if(tableWrap) tableWrap.innerHTML = adminTable(adminRecordsFiltered());
+            const onlineBadge = document.querySelector('[data-metric-online]');
+            if(onlineBadge && data.summary) onlineBadge.textContent = data.summary.onlineCount;
+            const totalBadge = document.querySelector('[data-metric-total]');
+            if(totalBadge && data.summary) totalBadge.textContent = data.summary.totalStudents;
+          }
+        }
+      } catch(e) {
+        if(e.message==='UNAUTHORIZED'){
+          currentSession = null;
+          navigateTo('/guru/login');
+        }
+      }
+    };
+    fetchFeed();
+    adminLiveTimer = setInterval(fetchFeed, 3500);
   }
+
+  function stopAdminLiveFeed(){
+    if(adminLiveTimer){ clearInterval(adminLiveTimer); adminLiveTimer = null; }
+  }
+
   function adminPage(){
-    const all=readStudentRecords(),records=adminRecordsFiltered(),completed=all.filter(r=>r.diagnosticComplete),avg=completed.length?Math.round(completed.reduce((n,r)=>n+(r.diagnosticCorrect||0),0)/completed.length):0,activities=all.reduce((n,r)=>n+(r.labCompleted||0)+(r.detectiveCompleted||0),0),classes=[...new Set(all.map(r=>r.className).filter(Boolean))].sort();
+    const all = (liveFeedData && liveFeedData.students) ? liveFeedData.students : readStudentRecords();
+    const records = adminRecordsFiltered();
+    const onlineCount = liveFeedData?.summary?.onlineCount ?? 0;
+    const totalCount = liveFeedData?.summary?.totalStudents ?? all.length;
+    const completed = all.filter(r=>r.diagnosticComplete||r.isFinished);
+    const classes = liveFeedData?.summary?.classes || [...new Set(all.map(r=>r.className).filter(Boolean))].sort();
     const tab=(id,label)=>`<button class="admin-tab ${adminTab===id?'active':''}" type="button" data-admin-tab="${id}" aria-pressed="${adminTab===id}">${label}</button>`;
     let content='';
     if(adminTab==='overview'){
-      content=`<div class="admin-metric-grid"><article class="admin-metric"><span>Murid terdaftar</span><strong>${all.length}</strong><small>Profil pada browser demo ini</small></article><article class="admin-metric"><span>Diagnostik selesai</span><strong>${completed.length}</strong><small>${all.length?Math.round(completed.length/all.length*100):0}% dari profil</small></article><article class="admin-metric"><span>Rata-rata diagnostik</span><strong>${completed.length?avg+'/'+adaptive.QUESTIONS.length:'—'}</strong><small>Hanya murid dengan asesmen selesai</small></article><article class="admin-metric"><span>Aktivitas tuntas</span><strong>${activities}</strong><small>Laboratorium + Detektif Logika</small></article></div><section class="card admin-panel"><div class="admin-panel-head"><div><h2>Aktivitas terbaru</h2><p>Profil demo yang terakhir diperbarui.</p></div><button class="btn btn-outline btn-sm" type="button" data-admin-tab="students">Lihat semua murid ${ICON('arrow-right')}</button></div>${adminTable(all.slice().sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt))).slice(0,6))}</section><section class="card admin-panel"><div class="admin-panel-head"><div><h2>Ringkasan konten</h2><p>Materi dan aktivitas yang tersedia pada versi ini.</p></div><button class="btn btn-outline btn-sm" type="button" data-admin-tab="content">Lihat konten</button></div><div class="admin-content-summary"><div><strong>${unitData.length}</strong><span>Unit materi</span></div><div><strong>${adaptive.QUESTIONS.length}</strong><span>Soal diagnostik</span></div><div><strong>${Object.keys(engine.SCENARIOS).length}</strong><span>Kasus laboratorium</span></div><div><strong>${engine.DETECTIVE.length}</strong><span>Kasus detektif</span></div></div></section>`;
+      content=`<div class="admin-metric-grid">
+        <article class="admin-metric"><span>Murid terdaftar</span><strong data-metric-total>${totalCount}</strong><small>Total murid di database</small></article>
+        <article class="admin-metric"><span style="color:#0ea5e9; font-weight:700;">🟢 Sedang Online</span><strong data-metric-online style="color:#0284c7;">${onlineCount}</strong><small>Aktif dalam 45 detik terakhir</small></article>
+        <article class="admin-metric"><span>Diagnostik selesai</span><strong>${completed.length}</strong><small>${totalCount?Math.round(completed.length/totalCount*100):0}% dari total murid</small></article>
+        <article class="admin-metric"><span>Mode Pemantauan</span><strong style="font-size:1.1rem; color:#10b981;">⚡ Live (3 detik)</strong><small>Sinkronisasi otomatis aktif</small></article>
+      </div>
+      <section class="card admin-panel">
+        <div class="admin-panel-head">
+          <div><h2>Aktivitas Siswa Saat Ini (Real-Time)</h2><p>Memantau murid mana saja yang aktif dan proses apa yang sedang dikerjakan.</p></div>
+          <button class="btn btn-outline btn-sm" type="button" data-admin-tab="students">Lihat semua murid ${ICON('arrow-right')}</button>
+        </div>
+        <div data-admin-table-container>${adminTable(records)}</div>
+      </section>
+      <section class="card admin-panel"><div class="admin-panel-head"><div><h2>Ringkasan materi & aktivitas</h2><p>Materi dan aktivitas yang aktif pada kurikulum Fase E.</p></div><button class="btn btn-outline btn-sm" type="button" data-admin-tab="content">Lihat konten</button></div><div class="admin-content-summary"><div><strong>${unitData.length}</strong><span>Unit materi</span></div><div><strong>${adaptive.QUESTIONS.length}</strong><span>Soal diagnostik</span></div><div><strong>${Object.keys(engine.SCENARIOS).length}</strong><span>Kasus laboratorium</span></div><div><strong>${engine.DETECTIVE.length}</strong><span>Kasus detektif</span></div></div></section>`;
     } else if(adminTab==='students'){
-      content=`<section class="card admin-panel"><div class="admin-panel-head"><div><h2>Daftar murid</h2><p>Gunakan pencarian dan filter untuk meninjau progres.</p></div><button class="btn btn-primary btn-sm" type="button" data-action="admin-export">${ICON('chart')} Ekspor CSV</button></div><div class="admin-filters"><label>Cari murid<input data-admin-search value="${escapeHtml(adminSearch)}" placeholder="Nama, kelas, atau nomor absen"></label><label>Kelas<select data-admin-class><option value="all">Semua kelas</option>${classes.map(c=>`<option value="${escapeHtml(c)}" ${adminClassFilter===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></label><label>Status diagnostik<select data-admin-status><option value="all" ${adminStatusFilter==='all'?'selected':''}>Semua status</option><option value="done" ${adminStatusFilter==='done'?'selected':''}>Selesai</option><option value="pending" ${adminStatusFilter==='pending'?'selected':''}>Belum selesai</option></select></label></div>${adminTable(records)}<p class="tiny muted">Menampilkan ${records.length} dari ${all.length} profil pada penyimpanan browser ini.</p><div class="admin-actions-row"><button class="btn btn-outline btn-sm" type="button" data-action="admin-seed">Isi data simulasi</button><button class="btn btn-light btn-sm" type="button" data-action="admin-clear-samples">Hapus data simulasi</button></div></section>`;
+      content=`<section class="card admin-panel">
+        <div class="admin-panel-head">
+          <div><h2>Daftar Murid & Progres Real-Time</h2><p>Pencarian, filter per kelas, dan status keaktifan siswa.</p></div>
+          <button class="btn btn-primary btn-sm" type="button" data-action="admin-export">${ICON('chart')} Ekspor CSV Resmi</button>
+        </div>
+        <div class="admin-filters">
+          <label>Cari murid<input data-admin-search value="${escapeHtml(adminSearch)}" placeholder="Nama, kelas, atau nomor absen"></label>
+          <label>Kelas<select data-admin-class><option value="all">Semua kelas</option>${classes.map(c=>`<option value="${escapeHtml(c)}" ${adminClassFilter===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></label>
+          <label>Status diagnostik<select data-admin-status><option value="all" ${adminStatusFilter==='all'?'selected':''}>Semua status</option><option value="done" ${adminStatusFilter==='done'?'selected':''}>Selesai</option><option value="pending" ${adminStatusFilter==='pending'?'selected':''}>Belum selesai</option></select></label>
+        </div>
+        <div data-admin-table-container>${adminTable(records)}</div>
+        <p class="tiny muted">Menampilkan ${records.length} dari ${totalCount} murid di database server.</p>
+      </section>`;
     } else if(adminTab==='preview'){
       const back=`<button class="btn btn-outline btn-sm" type="button" data-admin-tab="content">← Kembali ke konten</button>`;
       if(adminPreview?.type==='unit'){const u=unitData[adminPreview.value];content=`<section class="card admin-panel">${back}<span class="kicker">PRATINJAU MATERI 0${adminPreview.value+1}</span><h2>${escapeHtml(u.title)}</h2><p>${escapeHtml(u.body)}</p><div class="concept-emphasis"><strong>Inti konsep</strong><p>${escapeHtml(u.bigIdea)}</p></div><h3>${escapeHtml(u.exampleTitle)}</h3><ol class="admin-preview-steps">${u.steps.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol><div class="help-box"><strong>Pertanyaan refleksi</strong><p>${escapeHtml(u.question)}</p></div></section>`;}
-      else if(adminPreview?.type==='lab'){const sc=engine.SCENARIOS[adminPreview.value];content=`<section class="card admin-panel">${back}<span class="kicker">PRATINJAU KASUS LABORATORIUM</span><h2>${escapeHtml(sc.name)}</h2><p>${escapeHtml(sc.context)}</p><div class="admin-detail-grid">${sc.fields.map(f=>`<div><span>Masukan</span><strong>${escapeHtml(f.label)}</strong></div>`).join('')}<div><span>Cabang Ya</span><strong>${escapeHtml(sc.yes)}</strong></div><div><span>Cabang Tidak</span><strong>${escapeHtml(sc.no)}</strong></div></div><p class="prototype-warning">Untuk mencoba secara interaktif, keluar dari admin demo lalu masuk menggunakan profil murid.</p></section>`;}
+      else if(adminPreview?.type==='lab'){const sc=engine.SCENARIOS[adminPreview.value];content=`<section class="card admin-panel">${back}<span class="kicker">PRATINJAU KASUS LABORATORIUM</span><h2>${escapeHtml(sc.name)}</h2><p>${escapeHtml(sc.context)}</p><div class="admin-detail-grid">${sc.fields.map(f=>`<div><span>Masukan</span><strong>${escapeHtml(f.label)}</strong></div>`).join('')}<div><span>Cabang Ya</span><strong>${escapeHtml(sc.yes)}</strong></div><div><span>Cabang Tidak</span><strong>${escapeHtml(sc.no)}</strong></div></div></section>`;}
       else {const d=engine.DETECTIVE[adminPreview?.value||0];content=`<section class="card admin-panel">${back}<span class="kicker">PRATINJAU DETEKTIF LOGIKA</span><h2>${escapeHtml(d.title)}</h2><p>${escapeHtml(d.question)}</p><div class="admin-content-list">${d.choices.map(c=>`<article><div><strong>${escapeHtml(c.label)}</strong><p>${c.id===d.correct?'Kunci jawaban (tersimpan pada mesin latihan)':'Pilihan pengecoh'}</p></div></article>`).join('')}</div><div class="help-box"><strong>Petunjuk</strong><p>${escapeHtml(d.hint)}</p></div></section>`;}
     } else if(adminTab==='detail'){
       const r=all.find(x=>x.id===selectedAdminStudentId);
       if(!r){adminTab='students';return adminPage();}
-      const dt=r.updatedAt?new Date(r.updatedAt).toLocaleString('id-ID'):'Belum ada aktivitas';
-      content=`<section class="card admin-panel"><div class="admin-panel-head"><div><button class="btn btn-outline btn-sm" type="button" data-admin-tab="students">${ICON('arrow-right')} Kembali ke daftar</button><h2 style="margin-top:14px">${escapeHtml(r.name)}</h2><p>Kelas ${escapeHtml(r.className)} · Nomor absen ${escapeHtml(r.attendance)} ${r.isDemo?'<span class="badge badge-amber">Data simulasi</span>':''}</p></div><button class="btn btn-outline btn-sm" type="button" data-action="admin-export-one">Ekspor data murid</button></div><div class="admin-detail-grid"><div><span>Status diagnostik</span><strong>${r.diagnosticComplete?'Selesai':'Belum selesai'}</strong></div><div><span>Hasil diagnostik</span><strong>${r.diagnosticComplete?`${r.diagnosticCorrect}/${r.diagnosticTotal}`:'—'}</strong></div><div><span>Laboratorium</span><strong>${r.labCompleted||0}/${r.labTotal||Object.keys(engine.SCENARIOS).length}</strong></div><div><span>Detektif Logika</span><strong>${r.detectiveCompleted||0}/${r.detectiveTotal||engine.DETECTIVE.length}</strong></div><div><span>Kesalahan saat latihan</span><strong>${r.practiceErrors||0}</strong></div><div><span>Pengiriman ringkasan</span><strong>${r.submittedAt?'Sudah dikirim':'Belum dikirim'}</strong></div></div><div class="divider"></div><h3>Ringkasan konsep</h3>${r.concepts?`<div class="concept-score-grid">${Object.entries(r.concepts).map(([id,c])=>`<div><span>${escapeHtml(adaptive.CONCEPTS[id]?.label||id)}</span><strong>${c.correct}/${c.total}</strong></div>`).join('')}</div>`:'<p class="muted">Belum ada hasil asesmen yang tersimpan untuk profil ini.</p>'}<p class="tiny muted">Aktivitas terakhir: ${escapeHtml(r.lastActivity||'Belum diketahui')} · Diperbarui: ${escapeHtml(dt)}</p>${r.isDemo?'<p class="prototype-warning">Ini data simulasi, bukan hasil murid sungguhan.</p>':''}</section>`;
+      const dt=r.lastActiveAt?new Date(r.lastActiveAt).toLocaleString('id-ID'):'Belum ada aktivitas';
+      content=`<section class="card admin-panel"><div class="admin-panel-head"><div><button class="btn btn-outline btn-sm" type="button" data-admin-tab="students">${ICON('arrow-right')} Kembali ke daftar</button><h2 style="margin-top:14px">${escapeHtml(r.name)}</h2><p>Kelas ${escapeHtml(r.className)} · Nomor absen ${escapeHtml(r.attendance)} ${r.isOnline?'<span class="badge badge-teal">🟢 Online Sekarang</span>':'<span class="badge badge-neutral">Offline</span>'}</p></div></div><div class="admin-detail-grid"><div><span>Proses Terakhir</span><strong style="color:#1d4ed8;">${escapeHtml(r.currentStep||'Mulai Belajar')}</strong></div><div><span>Status diagnostik</span><strong>${r.diagnosticComplete||r.isFinished?'Selesai':'Sedang Mengerjakan'}</strong></div><div><span>Skor diagnostik</span><strong>${r.scoreString||'Belum selesai'}</strong></div><div><span>Terakhir aktif</span><strong>${escapeHtml(dt)}</strong></div></div></section>`;
     } else {
       content=`<section class="card admin-panel"><div class="admin-panel-head"><div><h2>Bank konten pembelajaran</h2><p>Ringkasan materi, asesmen visual, dan kasus praktik yang tersedia.</p></div></div><div class="admin-content-summary"><div><strong>${unitData.length}</strong><span>Unit materi</span></div><div><strong>${adaptive.QUESTIONS.length}</strong><span>Soal diagnostik</span></div><div><strong>${Object.keys(engine.SCENARIOS).length}</strong><span>Kasus laboratorium</span></div><div><strong>${engine.DETECTIVE.length}</strong><span>Kasus detektif</span></div></div><h3>Daftar materi</h3><div class="admin-content-list">${unitData.map((u,i)=>`<article><span class="unit-no">0${i+1}</span><div><strong>${escapeHtml(u.title)}</strong><p>${escapeHtml(u.subtitle)}</p></div><button class="btn btn-outline btn-sm" type="button" data-admin-preview-unit="${i}">Pratinjau</button></article>`).join('')}</div><h3>Bank soal diagnostik</h3><div class="admin-content-list">${adaptive.QUESTIONS.map((q,i)=>`<article><span class="unit-no">${String(i+1).padStart(2,'0')}</span><div><strong>${escapeHtml(q.stem)}</strong><p>${escapeHtml(adaptive.CONCEPTS[q.concept].label)}${q.visual?' · soal visual':''}</p></div><span class="badge badge-${q.visual?'teal':'neutral'}">${q.visual?'Visual':'Teks'}</span></article>`).join('')}</div><h3>Kasus Laboratorium</h3><div class="admin-case-grid">${Object.values(engine.SCENARIOS).map(s=>`<article><strong>${escapeHtml(s.name)}</strong><p>${escapeHtml(s.subtitle)}</p><button class="btn btn-outline btn-sm" type="button" data-admin-preview-lab="${s.key}">Buka kasus</button></article>`).join('')}</div><h3>Kasus Detektif Logika</h3><div class="admin-case-grid">${engine.DETECTIVE.map((d,i)=>`<article><strong>${i+1}. ${escapeHtml(d.title)}</strong><p>${escapeHtml(d.hint)}</p><button class="btn btn-outline btn-sm" type="button" data-admin-preview-case="${i}">Buka kasus</button></article>`).join('')}</div></section>`;
     }
-    return `${pageHead('RUANG GURU · DEMO LOKAL','Dashboard Admin','Pantau aktivitas belajar dan tinjau konten ALURIN. Data saat ini hanya berasal dari browser yang sedang digunakan.',pill('Mode demo · lokal','amber'))}<div class="admin-workspace"><nav class="admin-tabs" aria-label="Navigasi dashboard admin">${tab('overview','Ringkasan')}${tab('students','Daftar murid')}${tab('content','Materi & asesmen')}${adminTab==='preview'?tab('preview','Pratinjau'):''}</nav><div class="admin-warning">${ICON('info')} <span><strong>Catatan integrasi:</strong> data belum tersinkron antarperangkat. Setelah backend terhubung, fungsi demo lokal ini perlu diganti dengan API yang disiapkan bersama rekan Anda.</span></div>${content}</div>`;
+    return `${pageHead('RUANG GURU · LIVE MONITORING','Dashboard Guru','Pantau aktivitas belajar siswa secara real-time dari database server.',pill('Live Feed Aktif','teal'))}<div class="admin-workspace"><nav class="admin-tabs" aria-label="Navigasi dashboard guru">${tab('overview','Ringkasan Live')}${tab('students','Daftar murid')}${tab('content','Materi & asesmen')}${adminTab==='preview'?tab('preview','Pratinjau'):''}</nav>${content}</div>`;
   }
+
   function adminTable(records){
-    if(!records.length)return `<div class="admin-empty"><strong>Belum ada profil murid</strong><p>Masuk sebagai murid untuk membuat profil, atau isi data simulasi untuk mencoba dashboard.</p><button class="btn btn-outline btn-sm" type="button" data-action="admin-seed">Isi data simulasi</button></div>`;
-    return `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Murid</th><th>Kelas / Absen</th><th>Diagnostik</th><th>Aktivitas</th><th>Terakhir aktif</th><th></th></tr></thead><tbody>${records.map(r=>`<tr><td><strong>${escapeHtml(r.name)}</strong>${r.isDemo?'<small class="demo-row-label">Data simulasi</small>':''}</td><td>${escapeHtml(r.className)} / ${escapeHtml(r.attendance)}</td><td><span class="badge badge-${r.diagnosticComplete?'teal':'neutral'}">${r.diagnosticComplete?`${r.diagnosticCorrect}/${r.diagnosticTotal}`:'Belum selesai'}</span></td><td>${(r.labCompleted||0)+(r.detectiveCompleted||0)} / ${(r.labTotal||Object.keys(engine.SCENARIOS).length)+(r.detectiveTotal||engine.DETECTIVE.length)}</td><td>${r.updatedAt?escapeHtml(new Date(r.updatedAt).toLocaleDateString('id-ID')):'—'}</td><td><button class="btn btn-outline btn-sm" type="button" data-admin-view="${escapeHtml(r.id)}">Detail</button></td></tr>`).join('')}</tbody></table></div>`;
+    if(!records.length)return `<div class="admin-empty"><strong>Belum ada profil murid</strong><p>Murid yang masuk melalui alurin.fhadi.my.id akan langsung muncul di sini secara real-time.</p></div>`;
+    return `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Murid</th><th>Kelas / Absen</th><th>Proses Saat Ini</th><th>Diagnostik</th><th>Terakhir Aktif</th><th></th></tr></thead><tbody>${records.map(r=>`<tr><td><strong>${escapeHtml(r.name)}</strong> ${r.isOnline?'<span class="badge badge-teal" style="margin-left:6px; font-weight:700;">🟢 Online</span>':'<span class="badge badge-neutral" style="margin-left:6px;">⚪ Offline</span>'}</td><td>${escapeHtml(r.className)} / ${escapeHtml(r.attendance)}</td><td><span style="font-weight:600; color:#1d4ed8; font-size:0.875rem;">${escapeHtml(r.currentStep||'Mulai Belajar')}</span></td><td><span class="badge badge-${r.diagnosticComplete||r.isFinished?'teal':(r.answeredCount>0?'blue':'neutral')}">${r.scoreString||(r.diagnosticComplete?'Selesai':'Belum selesai')}</span></td><td>${r.lastActiveAt?escapeHtml(new Date(r.lastActiveAt).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})):'—'}</td><td><button class="btn btn-outline btn-sm" type="button" data-admin-view="${escapeHtml(r.id)}">Detail</button></td></tr>`).join('')}</tbody></table></div>`;
   }
-  function exportCSV(records){
-    const fields=['name','className','attendance','diagnosticComplete','diagnosticCorrect','diagnosticTotal','labCompleted','labTotal','detectiveCompleted','detectiveTotal','practiceErrors','submittedAt','updatedAt'];
-    const csv=[fields.join(','),...records.map(r=>fields.map(k=>`"${String(r[k]??'').replace(/"/g,'""')}"`).join(','))].join('\r\n');
-    const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='alurin-laporan-murid-demo.csv';a.click();URL.revokeObjectURL(url);toast('Laporan CSV dibuat dari data browser ini.');
+
+  function exportCSV(){
+    window.location.href = '/api/teacher/export.csv';
   }
   function submitStudentResult(){
     if(!currentSession||currentSession.role!=='student'){toast('Masuk sebagai murid untuk mengirim ringkasan.');return;}
     const records=readStudentRecords(),idx=records.findIndex(r=>r.id===currentSession.id);if(idx<0){syncStudentRecord();return submitStudentResult();}
-    records[idx]={...records[idx],submittedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};writeStudentRecords(records);toast('Ringkasan ditandai terkirim pada dashboard demo lokal.');render(false);
+    records[idx]={...records[idx],submittedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};writeStudentRecords(records);toast('Ringkasan hasil belajar berhasil dikirim.');triggerServerSync();render(false);
   }
   function downloadCertificate(){
     if(!currentSession||currentSession.role!=='student'){toast('Masuk sebagai murid untuk membuat lencana.');return;}
@@ -229,7 +395,7 @@
     return {answers,step,report,mode};
   }
   function saveDiagnostic(){
-    safeLocalSet(activeStorageKey('alurin-stage3-diagnostic'),JSON.stringify({answers:diagnosticState.answers,step:diagnosticState.step,report:diagnosticState.report,mode:diagnosticState.mode}));syncStudentRecord();
+    safeLocalSet(activeStorageKey('alurin-stage3-diagnostic'),JSON.stringify({answers:diagnosticState.answers,step:diagnosticState.step,report:diagnosticState.report,mode:diagnosticState.mode}));syncStudentRecord();triggerServerSync();
   }
   function issueFingerprint(value){
     const text=String(value);let hash=2166136261;
@@ -241,7 +407,6 @@
     if(result.added){practice=result.practice;savePractice();}
     return result.added;
   }
-  function navigateTo(slug){if(getRoute()===slug)render(true);else location.hash='#/'+slug;}
   function goAdaptive(concept,goal){
     const config=adaptive.CONCEPTS[concept];
     if(!config)return;
@@ -310,23 +475,52 @@
     document.body.classList.toggle('reduced-motion', preferences.reducedMotion);
   }
   function getRoute() {
-    const slug=(location.hash.replace(/^#\/?/,'').split('/')[0]||'beranda').toLowerCase();
-    return Object.prototype.hasOwnProperty.call(PAGES,slug) ? slug : 'beranda';
+    let path = (window.location.pathname || '/').toLowerCase();
+    if (window.location.hash && window.location.hash.startsWith('#/')) {
+      path = window.location.hash.replace(/^#\/?/, '/').toLowerCase();
+      window.history.replaceState(null, '', path);
+    }
+    if (path === '/guru/login') return 'guru-login';
+    if (path === '/guru' || path.startsWith('/guru')) return 'admin';
+    const clean = path.replace(/^\//, '').split('/')[0] || '';
+    if (!currentSession) {
+      if (clean === 'guru-login' || path === '/guru/login') return 'guru-login';
+      return 'login';
+    }
+    if (currentSession.role === 'teacher' || currentSession.role === 'admin') {
+      return 'admin';
+    }
+    return Object.prototype.hasOwnProperty.call(PAGES, clean) ? clean : 'beranda';
+  }
+  function navigateTo(target) {
+    let path = target;
+    if (!path.startsWith('/')) {
+      if (path === 'login') path = '/';
+      else if (path === 'guru-login') path = '/guru/login';
+      else if (path === 'admin' || path === 'guru') path = '/guru';
+      else path = '/' + path;
+    }
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
+    }
+    render(true);
   }
   function linkTo(slug, cls='nav-link') {
     const p=PAGES[slug];
-    return `<a class="${cls}${activeRoute===slug?' active':''}" href="#/${slug}" ${activeRoute===slug?'aria-current="page"':''} title="${p.label}">${ICON(p.icon)}<span>${p.label}</span></a>`;
+    const targetPath = slug === 'admin' ? '/guru' : '/' + slug;
+    return `<a class="${cls}${activeRoute===slug?' active':''}" href="${targetPath}" ${activeRoute===slug?'aria-current="page"':''} title="${p.label}">${ICON(p.icon)}<span>${p.label}</span></a>`;
   }
   function sidebar() {
-    if(currentSession?.role==='admin')return `<aside class="sidebar admin-sidebar" aria-label="Navigasi admin"><a class="brand" href="#/admin"><span class="brand-logo">${ICON('workflow')}</span><span><span class="brand-name">ALURIN</span><span class="brand-sub">RUANG GURU</span></span></a><div class="nav-section">Administrasi demo</div><nav class="sidebar-nav">${[['overview','Ringkasan'],['students','Daftar murid'],['content','Materi & asesmen']].map(([id,label])=>`<button class="nav-link ${adminTab===id?'active':''}" type="button" data-admin-tab="${id}">${ICON(id==='overview'?'chart':id==='students'?'clipboard':'book')}<span>${label}</span></button>`).join('')}</nav><div class="sidebar-bottom"><button type="button" data-modal="help">${ICON('help')}<span>Pusat Bantuan</span></button><button type="button" data-modal="settings">${ICON('settings')}<span>Pengaturan</span></button><button type="button" data-action="logout">${ICON('lock')}<span>Keluar</span></button></div><div class="sidebar-note"><strong>Mode prototipe</strong>Data dashboard hanya dari browser ini, belum sinkron ke server.</div></aside>`;
-    return `<aside class="sidebar" aria-label="Navigasi samping"><a class="brand" href="#/beranda" aria-label="ALURIN, kembali ke beranda"><span class="brand-logo">${ICON('workflow')}</span><span><span class="brand-name">ALURIN</span><span class="brand-sub">BELAJAR PAHAMI ALURNYA</span></span></a><div class="nav-section">Menu pembelajaran</div><nav class="sidebar-nav" aria-label="Navigasi utama">${NAV.map(k=>linkTo(k)).join('')}</nav><div class="sidebar-bottom"><button type="button" data-modal="help">${ICON('help')}<span>Pusat Bantuan</span></button><button type="button" data-modal="settings">${ICON('settings')}<span>Pengaturan</span></button><button type="button" data-action="logout">${ICON('lock')}<span>Keluar dari akun</span></button></div><div class="sidebar-note"><strong>Versi pengembangan</strong>v0.4 · 12 soal, 6 kasus lab, dan 6 kasus detektif.</div></aside>`;
+    if(currentSession?.role==='admin'||currentSession?.role==='teacher')return `<aside class="sidebar admin-sidebar" aria-label="Navigasi admin"><a class="brand" href="/guru"><span class="brand-logo">${ICON('workflow')}</span><span><span class="brand-name">ALURIN</span><span class="brand-sub">RUANG GURU</span></span></a><div class="nav-section">Administrasi Kelas</div><nav class="sidebar-nav">${[['overview','Ringkasan Live'],['students','Daftar murid'],['content','Materi & asesmen']].map(([id,label])=>`<button class="nav-link ${adminTab===id?'active':''}" type="button" data-admin-tab="${id}">${ICON(id==='overview'?'chart':id==='students'?'clipboard':'book')}<span>${label}</span></button>`).join('')}</nav><div class="sidebar-bottom"><button type="button" data-modal="help">${ICON('help')}<span>Pusat Bantuan</span></button><button type="button" data-modal="settings">${ICON('settings')}<span>Pengaturan</span></button><button type="button" data-action="logout">${ICON('lock')}<span>Keluar</span></button></div><div class="sidebar-note"><strong>Portal Guru</strong>Terhubung ke database server secara real-time.</div></aside>`;
+    return `<aside class="sidebar" aria-label="Navigasi samping"><a class="brand" href="/beranda" aria-label="ALURIN, kembali ke beranda"><span class="brand-logo">${ICON('workflow')}</span><span><span class="brand-name">ALURIN</span><span class="brand-sub">BELAJAR PAHAMI ALURNYA</span></span></a><div class="nav-section">Menu pembelajaran</div><nav class="sidebar-nav" aria-label="Navigasi utama">${NAV.map(k=>linkTo(k)).join('')}</nav><div class="sidebar-bottom"><button type="button" data-modal="help">${ICON('help')}<span>Pusat Bantuan</span></button><button type="button" data-modal="settings">${ICON('settings')}<span>Pengaturan</span></button><button type="button" data-action="logout">${ICON('lock')}<span>Keluar dari akun</span></button></div><div class="sidebar-note"><strong>Progres Tersimpan</strong>Data belajar Anda otomatis tersimpan di server.</div></aside>`;
   }
   function topbar() {
-    const page=PAGES[activeRoute],name=currentSession?.name||(currentSession?.role==='admin'?'Admin':'Demo');
-    return `<header class="topbar"><div class="topbar-left"><a href="${currentSession?.role==='admin'?'#/admin':'#/beranda'}" class="mobile-brand"><span class="mini-mark">${ICON('workflow')}</span>ALURIN</a><div><div class="topbar-page">${page.label}</div><div class="topbar-meta">${page.sub}</div></div></div><div class="topbar-actions"><span class="stage-pill">ALURIN v0.4 · FRONTEND DEMO</span><button class="icon-btn" type="button" data-modal="help" aria-label="Buka bantuan">${ICON('help')}</button><button class="icon-btn" type="button" data-modal="settings" aria-label="Buka pengaturan">${ICON('settings')}</button><span class="avatar" title="${currentSession?.role==='admin'?'Admin demo':'Profil murid'}">${initials(name)}</span><button class="btn btn-outline btn-sm topbar-logout" type="button" data-action="logout">Keluar</button></div></header>`;
+    const page=PAGES[activeRoute]||PAGES['beranda'],name=currentSession?.name||(currentSession?.role==='admin'||currentSession?.role==='teacher'?'Guru':'Siswa');
+    const brandTarget = (currentSession?.role==='admin'||currentSession?.role==='teacher') ? '/guru' : '/beranda';
+    return `<header class="topbar"><div class="topbar-left"><a href="${brandTarget}" class="mobile-brand"><span class="mini-mark">${ICON('workflow')}</span>ALURIN</a><div><div class="topbar-page">${page.label}</div><div class="topbar-meta">${page.sub}</div></div></div><div class="topbar-actions"><span class="stage-pill">${(currentSession?.role==='admin'||currentSession?.role==='teacher') ? 'PORTAL GURU' : 'MURID KELAS X'}</span><button class="icon-btn" type="button" data-modal="help" aria-label="Buka bantuan">${ICON('help')}</button><button class="icon-btn" type="button" data-modal="settings" aria-label="Buka pengaturan">${ICON('settings')}</button><span class="avatar" title="${name}">${initials(name)}</span><button class="btn btn-outline btn-sm topbar-logout" type="button" data-action="logout">Keluar</button></div></header>`;
   }
   function mobileNav() {
-    if(currentSession?.role==='admin')return `<nav class="mobile-nav admin-mobile-nav" aria-label="Navigasi admin">${[['overview','Ringkasan'],['students','Murid'],['content','Konten']].map(([id,label])=>`<button type="button" data-admin-tab="${id}" class="${adminTab===id?'active':''}">${ICON(id==='overview'?'chart':id==='students'?'clipboard':'book')}<span>${label}</span></button>`).join('')}<button type="button" data-action="logout">${ICON('lock')}<span>Keluar</span></button></nav>`;
+    if(currentSession?.role==='admin'||currentSession?.role==='teacher')return `<nav class="mobile-nav admin-mobile-nav" aria-label="Navigasi admin">${[['overview','Ringkasan'],['students','Murid'],['content','Konten']].map(([id,label])=>`<button type="button" data-admin-tab="${id}" class="${adminTab===id?'active':''}">${ICON(id==='overview'?'chart':id==='students'?'clipboard':'book')}<span>${label}</span></button>`).join('')}<button type="button" data-action="logout">${ICON('lock')}<span>Keluar</span></button></nav>`;
     return `<nav class="mobile-nav" aria-label="Navigasi ponsel">${MOBILE_NAV.map(k=>linkTo(k)).join('')}</nav>`;
   }
   function homeArt() {
@@ -355,10 +549,10 @@
       ['hasil','chart','Hasil Belajar','Lihat hasil latihan yang sudah kamu selesaikan.','purple']
     ];
     const diagnostikNote=diagnosticState.report
-      ?`<section class="card dashboard-adaptive"><span class="small-label">BERDASARKAN DIAGNOSTIK</span><h2>Mulai dari yang paling perlu kamu latih</h2><p>${adaptive.recommendation(diagnosticState.report,practice,progress).priority.label}. Kamu boleh memilih jalur lain kapan saja.</p><div class="btn-group"><button class="btn btn-primary" type="button" data-adaptive-go="latihan" data-concept="${adaptive.recommendation(diagnosticState.report,practice,progress).priority.id}">Coba latihan yang disarankan ${ICON('arrow-right')}</button><a class="btn btn-outline" href="#/hasil">Lihat peta belajar</a></div></section>`:'';
+      ?`<section class="card dashboard-adaptive"><span class="small-label">BERDASARKAN DIAGNOSTIK</span><h2>Mulai dari yang paling perlu kamu latih</h2><p>${adaptive.recommendation(diagnosticState.report,practice,progress).priority.label}. Kamu boleh memilih jalur lain kapan saja.</p><div class="btn-group"><button class="btn btn-primary" type="button" data-adaptive-go="latihan" data-concept="${adaptive.recommendation(diagnosticState.report,practice,progress).priority.id}">Coba latihan yang disarankan ${ICON('arrow-right')}</button><a class="btn btn-outline" href="/hasil">Lihat peta belajar</a></div></section>`:'';
     return `<section class="hero"><div><span class="kicker">${ICON('sparkle','sm')} MEDIA BELAJAR INFORMATIKA KELAS X</span><h1>${currentSession?.role==='student'?`Halo, ${escapeHtml(currentSession.name.split(' ')[0])}. `:''}Siap belajar berpikir <em>secara runtut?</em></h1><p>Dari masalah sederhana hingga diagram alir. Kenali konsepnya, pahami alasan di balik setiap langkah, dan bersiap mencoba sendiri.</p><div class="btn-group">${btn('diagnostik',diagnosticState.report?'Lihat diagnostik':'Mulai belajar')}${btn('materi','Jelajah materi','outline','book')}</div></div><div class="hero-art">${homeArt()}</div></section>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:28px 0 15px;"><h2 class="section-heading" style="margin:0;">Apa yang ingin kamu pelajari?</h2>${pill(diagnosticState.report?'Rekomendasi adaptif aktif':'Latihan interaktif aktif','teal')}</div>
-      <section class="quick-grid" aria-label="Pintasan pembelajaran">${links.map(([url,icon,title,desc,c])=>`<a href="#/${url}" class="quick-card"><span class="quick-icon ${c}">${ICON(icon,'lg')}</span><h3>${title}</h3><p>${desc}</p></a>`).join('')}</section>
+      <section class="quick-grid" aria-label="Pintasan pembelajaran">${links.map(([url,icon,title,desc,c])=>`<a href="/${url}" class="quick-card"><span class="quick-icon ${c}">${ICON(icon,'lg')}</span><h3>${title}</h3><p>${desc}</p></a>`).join('')}</section>
       ${diagnostikNote}<section class="bottom-grid"><div class="card card-pad"><h2 class="card-title">Perjalanan belajar ALURIN</h2><p class="card-desc">Urutan aktivitas yang dirancang untuk mengembangkan pemahamanmu secara bertahap.</p><div style="margin-top:14px;">${[
         ['1','Kenali kesiapan awal','Jawab pertanyaan sederhana tentang algoritma.'],
         ['2','Pelajari dan amati contoh','Hubungkan langkah naratif dengan simbol flowchart.'],
@@ -440,23 +634,45 @@
       case 'detektif':return detective();
       case 'hasil':return results();
       case 'admin':return adminPage();
+      case 'guru-login':return teacherLoginPage();
       default:return dashboard();
     }
   }
   function render(scroll=true) {
     let route=getRoute();
-    if(!currentSession && route!=='login'){location.hash='#/login';route='login';}
-    else if(currentSession?.role==='student' && route==='admin'){location.hash='#/beranda';route='beranda';}
-    else if(currentSession?.role==='admin' && !['admin','login'].includes(route)){location.hash='#/admin';route='admin';}
-    else if(currentSession && route==='login'){route=currentSession.role==='admin'?'admin':'beranda';location.hash='#/'+route;}
+    if(!currentSession && route!=='login' && route!=='guru-login'){
+      navigateTo('/');
+      return;
+    }
+    else if(currentSession?.role==='student' && route==='admin'){
+      navigateTo('/beranda');
+      return;
+    }
+    else if((currentSession?.role==='admin'||currentSession?.role==='teacher') && route!=='admin'){
+      navigateTo('/guru');
+      return;
+    }
     activeRoute=route;
-    document.title=`${PAGES[activeRoute].label} | ALURIN v0.4`;
+    document.title=`${PAGES[activeRoute]?.label||'ALURIN'} | ALURIN v0.4`;
     if(activeRoute==='login'){
-      app.innerHTML=loginPage();
+      if(window.location.pathname!=='/') window.history.replaceState(null,'','/');
+      app.innerHTML=studentLoginPage();
       if(scroll)window.scrollTo(0,0);
       return;
     }
-    app.innerHTML=`<div class="shell">${sidebar()}<div class="main-shell">${topbar()}<main id="main-content" class="page" tabindex="-1">${viewFor(activeRoute)}</main><footer class="page-foot"><span>ALURIN · Media Belajar Informatika Kelas X</span><span>ALURIN v0.4 · Frontend demo, backend menyusul</span></footer></div>${mobileNav()}</div>`;
+    if(activeRoute==='guru-login'){
+      if(window.location.pathname!=='/guru/login') window.history.replaceState(null,'','/guru/login');
+      app.innerHTML=teacherLoginPage();
+      if(scroll)window.scrollTo(0,0);
+      return;
+    }
+    if(activeRoute==='admin'){
+      if(window.location.pathname!=='/guru') window.history.replaceState(null,'','/guru');
+      startAdminLiveFeed();
+    } else {
+      stopAdminLiveFeed();
+    }
+    app.innerHTML=`<div class="shell">${sidebar()}<div class="main-shell">${topbar()}<main id="main-content" class="page" tabindex="-1">${viewFor(activeRoute)}</main><footer class="page-foot"><span>ALURIN · Media Belajar Informatika Kelas X</span><span>ALURIN v0.4 · Server PostgreSQL Terpusat</span></footer></div>${mobileNav()}</div>`;
     if(scroll) {window.scrollTo(0,0);document.getElementById('main-content')?.focus({preventScroll:true});}
     if(modalName) drawModal();
   }
@@ -469,31 +685,91 @@
   function drawModal() {
     if(!modalName) {dialogRoot.replaceChildren();return;}
     const help=modalName==='help';
-    const content=help?`<p>ALURIN dirancang agar murid kelas X dapat memahami algoritma melalui urutan langkah, simbol, dan percabangan. Berikut cara menjelajahi prototipe.</p><div class="detail-list"><div>${ICON('home','sm')} <span><strong>Beranda</strong>, memulai dan memilih aktivitas.</span></div><div>${ICON('clipboard','sm')} <span><strong>Diagnostik</strong>, berisi dua belas soal visual dan teks serta rekomendasi latihan berdasarkan kesalahan.</span></div><div>${ICON('book','sm')} <span><strong>Jelajah Konsep</strong>, pilih lima unit materi yang tersedia.</span></div><div>${ICON('blocks','sm')} <span><strong>Laboratorium</strong>, susun langkah, pilih simbol, periksa cabang, lalu jalankan tracing.</span></div><div>${ICON('bug','sm')} <span><strong>Detektif Logika</strong>, pilih perbaikan dan periksa alasan pada enam kasus.</span></div><div>${ICON('chart','sm')} <span><strong>Hasil Belajar</strong>, lihat daftar kasus yang benar-benar sudah selesai.</span></div></div><div class="demo-banner" style="margin:20px 0 0;">${ICON('info')}<span>Diagnostik dan adaptasi berbasis aturan telah aktif dalam mode demo. Hasilnya bukan nilai resmi atau bukti peningkatan kemampuan murid.</span></div>`:
+    const content=help?`<p>ALURIN dirancang agar murid kelas X dapat memahami algoritma melalui urutan langkah, simbol, dan percabangan. Berikut cara menjelajahi prototipe.</p><div class="detail-list"><div>${ICON('home','sm')} <span><strong>Beranda</strong>, memulai dan memilih aktivitas.</span></div><div>${ICON('clipboard','sm')} <span><strong>Diagnostik</strong>, berisi dua belas soal visual dan teks serta rekomendasi latihan berdasarkan kesalahan.</span></div><div>${ICON('book','sm')} <span><strong>Jelajah Konsep</strong>, pilih lima unit materi yang tersedia.</span></div><div>${ICON('blocks','sm')} <span><strong>Laboratorium</strong>, susun langkah, pilih simbol, periksa cabang, lalu jalankan tracing.</span></div><div>${ICON('bug','sm')} <span><strong>Detektif Logika</strong>, pilih perbaikan dan periksa alasan pada enam kasus.</span></div><div>${ICON('chart','sm')} <span><strong>Hasil Belajar</strong>, lihat daftar kasus yang benar-benar sudah selesai.</span></div></div>`:
       `<p>Sesuaikan kenyamanan tampilan di perangkat yang sedang digunakan. Pilihan disimpan hanya di peramban ini.</p><label class="toggle-row"><span>Perbesar teks<small>Memudahkan pembacaan judul, instruksi, dan soal.</small></span><input type="checkbox" data-setting="large-text" ${preferences.largeText?'checked':''}></label><label class="toggle-row"><span>Kurangi animasi<small>Meminimalkan transisi gerak antarkomponen.</small></span><input type="checkbox" data-setting="reduced-motion" ${preferences.reducedMotion?'checked':''}></label><p style="font-size:.75rem;">Fitur aksesibilitas lain akan disempurnakan bersamaan dengan pengembangan editor dan tracing.</p>`;
     dialogRoot.innerHTML=`<div class="modal-scrim" data-scrim><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><header class="modal-head"><h2 id="modalTitle">${help?'Bantuan Menggunakan ALURIN':'Pengaturan Tampilan'}</h2><button class="icon-btn" aria-label="Tutup dialog" type="button" data-action="close-modal">${ICON('x')}</button></header><div class="modal-body">${content}</div></section></div>`;
     dialogRoot.querySelector('[data-action="close-modal"]').focus();
   }
   function openModal(name, trigger) {previousFocus=trigger||document.activeElement;modalName=name;drawModal();}
   function closeModal(){modalName=null;drawModal();if(previousFocus?.isConnected)previousFocus.focus();}
-  document.addEventListener('submit',(event)=>{
+  document.addEventListener('submit',async (event)=>{
     const form=event.target.closest('form[data-form]');if(!form)return;event.preventDefault();
     if(form.dataset.form==='student-login'){
       const fd=new FormData(form),name=String(fd.get('studentName')||'').trim().replace(/\s+/g,' '),className=String(fd.get('className')||'').trim().toUpperCase(),attendance=String(fd.get('attendance')||'').trim();
       const msg=form.querySelector('[data-login-message="student"]');
       if(name.length<3||!className||!/^\d{1,2}$/.test(attendance)||Number(attendance)<1||Number(attendance)>99){if(msg)msg.textContent='Periksa nama, kelas, dan nomor absen (1–99).';return;}
-      const id=studentRecordId(className,attendance),existing=readStudentRecords().find(r=>r.id===id);
-      if(existing&&!existing.isDemo&&normalizedName(existing.name)!==normalizedName(name)){if(msg)msg.textContent='Nomor absen ini sudah terhubung dengan nama berbeda pada browser ini. Hubungi admin demo untuk mereset profil.';return;}
-      currentSession={role:'student',id,name,className,attendance};safeLocalSet(SESSION_KEY,JSON.stringify(currentSession));reloadUserState();syncStudentRecord();location.hash='#/beranda';render(true);return;
+      if(msg)msg.textContent='Menghubungkan ke server...';
+      try {
+        let res=null;
+        if(globalThis.ALURIN_API){
+          res = await globalThis.ALURIN_API.studentLogin(name, className, attendance);
+        }
+        const studentId = res?.student?.id || studentRecordId(className,attendance);
+        currentSession={role:'student',id:studentId,name:res?.student?.name||name,className:res?.student?.className||className,attendance:res?.student?.attendance||attendance};
+        safeLocalSet(SESSION_KEY,JSON.stringify(currentSession));
+        
+        // Auto-resume state dari database PostgreSQL
+        if(res && res.state){
+          if(res.state.diagnosticAnswers){
+            try{ diagnosticState.answers=JSON.parse(res.state.diagnosticAnswers); }catch{}
+          }
+          if(Number.isInteger(res.state.diagnosticStep)){
+            diagnosticState.step=res.state.diagnosticStep;
+          }
+          if(res.state.diagnosticReport){
+            try{ diagnosticState.report=JSON.parse(res.state.diagnosticReport); diagnosticState.mode='summary'; }catch{}
+          }
+          if(res.state.labStateJson){
+            try{ Object.assign(labState, JSON.parse(res.state.labStateJson)); }catch{}
+          }
+          if(res.state.detectiveStateJson){
+            try{ Object.assign(detectiveSelections, JSON.parse(res.state.detectiveStateJson)); }catch{}
+          }
+        }
+        reloadUserState();
+        syncStudentRecord();
+        if(res && res.isResume){
+          toast(`Selamat datang kembali, ${currentSession.name}! Progres Anda dipulihkan.`);
+        } else {
+          toast(`Selamat datang, ${currentSession.name}!`);
+        }
+        navigateTo('/beranda');
+      } catch(err) {
+        if(msg) msg.textContent = err.message || 'Gagal masuk. Coba lagi.';
+      }
+      return;
     }
-    if(form.dataset.form==='admin-login'){
-      const fd=new FormData(form),username=String(fd.get('adminUser')||'').trim(),password=String(fd.get('adminPass')||'');
-      const msg=form.querySelector('[data-login-message="admin"]');
-      if(username!==DEMO_ADMIN_USER||password!==DEMO_ADMIN_PASSWORD){if(msg)msg.textContent='Nama pengguna atau kode demo tidak sesuai.';return;}
-      currentSession={role:'admin',id:'admin-demo',name:'Admin ALURIN'};safeLocalSet(SESSION_KEY,JSON.stringify(currentSession));adminTab='overview';location.hash='#/admin';render(true);return;
+    if(form.dataset.form==='teacher-login'){
+      const fd=new FormData(form),username=String(fd.get('teacherUser')||'').trim(),password=String(fd.get('teacherPass')||'');
+      const msg=form.querySelector('[data-login-message="teacher"]');
+      if(!username||!password){if(msg)msg.textContent='Nama pengguna dan kata sandi wajib diisi.';return;}
+      if(msg)msg.textContent='Memeriksa kredensial...';
+      try {
+        let res=null;
+        if(globalThis.ALURIN_API){
+          res = await globalThis.ALURIN_API.teacherLogin(username, password);
+        }
+        currentSession={role:'teacher',id:res?.teacher?.id||'guru-1',name:res?.teacher?.name||'Guru Informatika',username};
+        safeLocalSet(SESSION_KEY,JSON.stringify(currentSession));
+        adminTab='overview';
+        toast(`Selamat datang, ${currentSession.name}!`);
+        navigateTo('/guru');
+      } catch(err) {
+        if(msg) msg.textContent = err.message || 'Nama pengguna atau kata sandi salah.';
+      }
+      return;
     }
   });
-  document.addEventListener('click',(event)=>{
+  document.addEventListener('click', async (event)=>{
+    const link = event.target.closest('a[href]');
+    if (link && !link.target && !link.hasAttribute('download')) {
+      const rawHref = link.getAttribute('href');
+      if (rawHref && (rawHref.startsWith('/') || rawHref.startsWith('#/'))) {
+        event.preventDefault();
+        navigateTo(rawHref.replace(/^#\/?/, '/'));
+        return;
+      }
+    }
     const adminTabBtn=event.target.closest('[data-admin-tab]');
     if(adminTabBtn){adminTab=adminTabBtn.dataset.adminTab;selectedAdminStudentId=null;render(false);return;}
     const adminView=event.target.closest('[data-admin-view]');
@@ -504,7 +780,16 @@
     if(adminPreviewLab){adminPreview={type:'lab',value:adminPreviewLab.dataset.adminPreviewLab};adminTab='preview';render(false);return;}
     const adminPreviewCase=event.target.closest('[data-admin-preview-case]');
     if(adminPreviewCase){adminPreview={type:'case',value:Number(adminPreviewCase.dataset.adminPreviewCase)};adminTab='preview';render(false);return;}
-    if(event.target.closest('[data-action="logout"]')){currentSession=null;safeLocalSet(SESSION_KEY,'');modalName=null;location.hash='#/login';render(true);return;}
+    if(event.target.closest('[data-action="logout"]')){
+      if (globalThis.ALURIN_API) {
+        try { await globalThis.ALURIN_API.logout(); } catch(e){}
+      }
+      currentSession=null;
+      safeLocalSet(SESSION_KEY,'');
+      modalName=null;
+      navigateTo('/');
+      return;
+    }
     if(event.target.closest('[data-action="admin-seed"]')){seedDemoStudents();render(false);toast('Data simulasi ditambahkan. Semua profil bertanda Data simulasi.');return;}
     if(event.target.closest('[data-action="admin-clear-samples"]')){writeStudentRecords(readStudentRecords().filter(r=>!r.isDemo));render(false);toast('Data simulasi dihapus. Profil murid non-simulasi dipertahankan.');return;}
     if(event.target.closest('[data-action="admin-export"]')){exportCSV(adminRecordsFiltered());return;}
@@ -530,6 +815,9 @@
         diagnosticState.report=result;diagnosticState.mode='summary';
         selectedConcept=adaptive.recommendation(result,practice,progress).priority.id;
         toast('Asesmen selesai. Rekomendasi latihan sudah disiapkan.');
+        if (globalThis.ALURIN_API && currentSession?.role === 'student') {
+          globalThis.ALURIN_API.submitStudentScore(result.correct, adaptive.QUESTIONS.length, result.concepts).catch(console.error);
+        }
       }
       saveDiagnostic();render(false);
       if(diagnosticState.mode==='questions')app.querySelector('#diagnostic-question-heading')?.focus();
@@ -678,6 +966,7 @@
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
     }
   });
+  window.addEventListener('popstate',()=>{render(true);});
   window.addEventListener('hashchange',()=>{render(true);});
   applyPreferences();
   render(false);

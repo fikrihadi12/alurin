@@ -1,0 +1,25 @@
+{
+  "name": "alurin",
+  "version": "0.4.0",
+  "description": "ALURIN - Media Belajar Algoritma & Flowchart Interaktif Kelas X",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node tests/test_engine.cjs && node tests/test_adaptive.cjs",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:push:prod": "prisma db push --schema=./prisma/schema.prod.prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.4.1",
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "prisma": "^6.4.1"
+  }
+}
