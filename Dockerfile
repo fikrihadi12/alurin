@@ -32,7 +32,6 @@ COPY --from=builder /app/index.html ./index.html
 COPY --from=builder /app/css ./css
 COPY --from=builder /app/js ./js
 COPY --from=builder /app/assets ./assets
-COPY --from=builder /app/favicons ./favicons
 
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh && chown -R alurin:nodejs /app
