@@ -1,0 +1,15 @@
+services:
+  alurin-app:
+    build: .
+    container_name: alurin-app
+    restart: unless-stopped
+    ports:
+      # Port 3060 aman dari bentrok dengan Wedding Tracker (3050) & Immich (2283 / 3001)
+      - "3060:80"
+    networks:
+      - alurin-net
+
+networks:
+  alurin-net:
+    name: alurin-net
+    driver: bridge
